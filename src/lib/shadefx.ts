@@ -15,6 +15,8 @@ export const sobelFrag = fetch("shaders/sobel.frag").then((r) => r.text());
 export const circularrevealFrag = fetch("shaders/circularreveal.frag").then(
   (r) => r.text(),
 );
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { DOMElement } from "solid-js/jsx-runtime";
 
 export const u_time = new THREE.Clock(false);
 export const resolution = new THREE.Vector2(0, 0);
@@ -144,15 +146,63 @@ export function mount(
   adjustRendererSize(renderer, composer);
 }
 
-export function createRenderer() {
+export function createRenderer(parent: DOMElement) {
   const renderer = new THREE.WebGLRenderer();
-  document.body.appendChild(renderer.domElement);
-
-  renderer.domElement.style.position = "fixed";
-  renderer.domElement.style.zIndex = "0";
-  renderer.domElement.style.top = "0";
+  parent.appendChild(renderer.domElement);
 
   const composer = new EffectComposer(renderer);
 
   return { composer, renderer };
+}
+
+async function main() {
+  document.childNodes.forEach((element) => {
+    element.remove();
+  });
+
+  const { renderer, composer } = createRenderer(document.body);
+  const { video, texture } = await createVideo("textures/video.mp4");
+
+  document.body.appendChild(video);
+  document.body.addEventListener("click", () => {
+    if (video.paused) {
+      video.currentTime = 7;
+      u_time.start();
+      video.play();
+    } else {
+      u_time.stop();
+      video.pause();
+    }
+  });
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      u_image: { value: texture },
+    },
+    vertexShader: await passVertex,
+    fragmentShader: await renderFrag,
+  });
+
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+  composer.addPass(new RenderPass(scene, camera));
+
+  mount(renderer, composer, []);
+
+  window.addEventListener(
+    "resize",
+    () => adjustRendererSize(renderer, composer),
+    false,
+  );
+  requestAnimationFrame(animate);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    render();
+  }
+
+  function render() {
+    circularRevealPass.uniforms.u_time.value = u_time.getElapsedTime();
+    composer.render();
+  }
 }
