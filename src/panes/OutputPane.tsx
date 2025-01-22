@@ -1,4 +1,4 @@
-import { RenderPass } from "three/examples/jsm/Addons.js";
+import { RenderPass, ShaderPass } from "three/examples/jsm/Addons.js";
 import * as THREE from "three";
 import {
   createVideo,
@@ -15,11 +15,12 @@ import {
   filmPass,
   greyPass,
   sobelPass,
+  luminancePass,
 } from "../lib/shadefx";
 import { DOMElement } from "solid-js/jsx-runtime";
 
 export function OutputPane() {
-  const parent = <article class="flex-1 flex"></article>;
+  const parent = <article class="flex flex-1"></article>;
   main(parent as any);
   return parent;
 }
@@ -52,7 +53,7 @@ async function main(parent: DOMElement) {
   scene.add(mesh);
   composer.addPass(new RenderPass(scene, camera));
 
-  mount(renderer, composer, [greyPass, sobelPass]);
+  mount(renderer, composer, []);
 
   window.addEventListener(
     "resize",
@@ -67,7 +68,11 @@ async function main(parent: DOMElement) {
   }
 
   function render() {
-    circularRevealPass.uniforms.u_time.value = u_time.getElapsedTime();
+    composer.passes.forEach((pass) => {
+      if (!(pass as ShaderPass).uniforms?.u_time) return;
+
+      (pass as ShaderPass).uniforms.u_time.value = u_time.getElapsedTime();
+    });
     composer.render();
   }
 }

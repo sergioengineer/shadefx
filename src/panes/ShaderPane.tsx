@@ -1,4 +1,5 @@
 import { AiFillFolderAdd } from "solid-icons/ai";
+import { allowedExtensions } from "../lib/fileExtensions";
 
 export function ShaderPane(props: { height: number }) {
   let fileInputRef: HTMLInputElement = null as any;
@@ -12,7 +13,15 @@ export function ShaderPane(props: { height: number }) {
         >
           <AiFillFolderAdd />
           Node
-          <input type="file" ref={fileInputRef} class="hidden" />
+          <input
+            type="file"
+            accept={allowedExtensions}
+            ref={fileInputRef}
+            onChange={(e) => {
+              console.log(e.target.files);
+            }}
+            class="hidden"
+          />
         </button>
       </header>
     </article>

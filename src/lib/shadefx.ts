@@ -10,6 +10,9 @@ import {
 export const passVertex = fetch("shaders/pass.vert").then((r) => r.text());
 export const renderFrag = fetch("shaders/render.frag").then((r) => r.text());
 export const greyFrag = fetch("shaders/grey.frag").then((r) => r.text());
+export const luminanceFrag = fetch("shaders/luminance.frag").then((r) =>
+  r.text(),
+);
 export const blurFrag = fetch("shaders/blur.frag").then((r) => r.text());
 export const sobelFrag = fetch("shaders/sobel.frag").then((r) => r.text());
 export const circularrevealFrag = fetch("shaders/circularreveal.frag").then(
@@ -45,6 +48,13 @@ export const DefaultShader = {
 export const greyPass = new ShaderPass(
   {
     ...DefaultShader,
+  },
+  "u_image",
+);
+export const luminancePass = new ShaderPass(
+  {
+    ...DefaultShader,
+    fragmentShader: await luminanceFrag,
   },
   "u_image",
 );
@@ -148,6 +158,7 @@ export function mount(
 
 export function createRenderer(parent: DOMElement) {
   const renderer = new THREE.WebGLRenderer();
+  renderer.domElement.style.backgroundColor = "white";
   parent.appendChild(renderer.domElement);
 
   const composer = new EffectComposer(renderer);
