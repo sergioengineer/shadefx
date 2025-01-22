@@ -20,12 +20,14 @@ import {
 import { DOMElement } from "solid-js/jsx-runtime";
 
 export function OutputPane() {
-  const parent = <article class="flex flex-1"></article>;
-  main(parent as any);
-  return parent;
+  let parent: HTMLElement | undefined;
+  main(parent);
+  return <article ref={parent} class="flex flex-1"></article>;
 }
 
-async function main(parent: DOMElement) {
+async function main(parent: DOMElement | undefined) {
+  if (!parent) return;
+
   const { renderer, composer } = createRenderer(parent);
   const { video, texture } = await createVideo("textures/video.mp4");
 
