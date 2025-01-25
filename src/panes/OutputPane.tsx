@@ -18,10 +18,14 @@ import {
   luminancePass,
 } from "../lib/shadefx";
 import { DOMElement } from "solid-js/jsx-runtime";
+import { createEffect } from "solid-js";
 
 export function OutputPane() {
   let parent: HTMLElement | undefined;
-  main(parent);
+  createEffect(() => {
+    main(parent);
+  });
+
   return <article ref={parent} class="flex flex-1"></article>;
 }
 
@@ -34,7 +38,7 @@ async function main(parent: DOMElement | undefined) {
   parent.appendChild(video);
   parent.addEventListener("click", () => {
     if (video.paused) {
-      video.currentTime = 7;
+      video.currentTime = 50;
       u_time.start();
       video.play();
     } else {
