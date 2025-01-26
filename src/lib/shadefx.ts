@@ -221,6 +221,88 @@ async function main() {
   }
 }
 
+type Node = { type: string };
+type InputNode = Node & (VideoInputNode | ImageInputNode);
+type VideoInputNode = {
+  textureType: "video";
+  input: HTMLVideoElement;
+  texture: THREE.VideoTexture;
+  pass: RenderPass;
+  material: THREE.ShaderMaterial;
+  mesh: THREE.Mesh;
+};
+type ImageInputNode = {
+  textureType: "image";
+};
+
+async function createInputNode(type: InputNode["textureType"], src: string) {
+  if (type === "video") {
+    const node: Partial<InputNode> = {
+      type: "input",
+      textureType: type,
+    };
+    const video = document.createElement("video");
+
+    video.src = src;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = false;
+    video.style.display = "none";
+
+    const texture = new THREE.VideoTexture(video);
+
+    node.input = video;
+    node.texture = texture;
+    node.pass = new RenderPass(SignalChain.scene, SignalChain.camera);
+
+    await new Promise((r) => {
+      video.onloadeddata = () => r(true);
+    });
+
+    node.material = new THREE.ShaderMaterial({
+      uniforms: {
+        u_image: { value: texture },
+      },
+      vertexShader: await passVertex,
+      fragmentShader: await renderFrag,
+    });
+
+    node.mesh = new THREE.Mesh(geometry, node.material);
+    scene.add(node.mesh);
+
+    return node as VideoInputNode;
+  }
+}
+
+class SignalChain {
+  composer: EffectComposer;
+  renderer: THREE.WebGLRenderer;
+  parent: DOMElement;
+  readonly nodes: Node[] = [];
+  static camera = new THREE.Camera();
+  static geometry = new FullscreenTriangleGeometry();
+  static scene = new THREE.Scene();
+
+  constructor(parent: DOMElement) {
+    this.parent = parent;
+    this.renderer = new THREE.WebGLRenderer();
+    this.renderer.domElement.style.backgroundColor = "white";
+    this.parent.appendChild(this.renderer.domElement);
+    this.composer = new EffectComposer(this.renderer);
+  }
+
+  addNode(node: Node) {
+    console.assert(!!node, "Node was expected");
+    const hasInputNode = this.nodes.some((x) => x.type === "input");
+    if (!hasInputNode) {
+      this.nodes.splice(0, 0, node);
+      return;
+    }
+
+    this.nodes.push(node);
+  }
+}
+
 //reinplement class so that we have more control of the buffer swaping process
 class EffectComposer {
   renderer: THREE.WebGLRenderer;
