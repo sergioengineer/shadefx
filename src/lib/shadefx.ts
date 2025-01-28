@@ -42,69 +42,6 @@ export class FullscreenTriangleGeometry extends THREE.BufferGeometry {
   }
 }
 
-export const DefaultShader = {
-  name: "GreyShader",
-  uniforms: { u_image: { value: null } },
-  vertexShader: await passVertex,
-  fragmentShader: await greyFrag,
-};
-export const greyPass = new ShaderPass(
-  {
-    ...DefaultShader,
-  },
-  "u_image",
-);
-export const luminancePass = new ShaderPass(
-  {
-    ...DefaultShader,
-    fragmentShader: await luminanceFrag,
-  },
-  "u_image",
-);
-
-export const blurPass = new ShaderPass(
-  {
-    ...DefaultShader,
-    uniforms: {
-      ...DefaultShader.uniforms,
-      u_resolution: { value: resolution },
-    },
-    name: "BlurShader",
-    fragmentShader: await blurFrag,
-  },
-  "u_image",
-);
-
-export const sobelPass = new ShaderPass(
-  {
-    ...DefaultShader,
-    uniforms: {
-      ...DefaultShader.uniforms,
-      u_resolution: { value: resolution },
-    },
-    name: "SobelShader",
-    fragmentShader: await sobelFrag,
-  },
-  "u_image",
-);
-
-export const circularRevealPass = new ShaderPass(
-  {
-    ...DefaultShader,
-    uniforms: {
-      ...DefaultShader.uniforms,
-      u_resolution: { value: resolution },
-      u_time: { value: u_time.getElapsedTime() },
-    },
-    name: "circularRevealPass",
-    fragmentShader: await circularrevealFrag,
-  },
-  "u_image",
-);
-
-export const filmPass = new FilmPass(1, false);
-export const dotPass = new DotScreenPass(new THREE.Vector2(0, 0), 1, 2);
-
 export function createVideo(src: string) {
   const video = document.createElement("video");
 
@@ -169,60 +106,11 @@ export function createRenderer(parent: DOMElement) {
   return { composer, renderer };
 }
 
-async function main() {
-  document.childNodes.forEach((element) => {
-    element.remove();
-  });
-
-  const { renderer, composer } = createRenderer(document.body);
-  const { video, texture } = await createVideo("textures/video.mp4");
-
-  document.body.appendChild(video);
-  document.body.addEventListener("click", () => {
-    if (video.paused) {
-      video.currentTime = 7;
-      u_time.start();
-      video.play();
-    } else {
-      u_time.stop();
-      video.pause();
-    }
-  });
-
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      u_image: { value: texture },
-    },
-    vertexShader: await passVertex,
-    fragmentShader: await renderFrag,
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
-  composer.addPass(new RenderPass(scene, camera));
-
-  mount(renderer, composer, []);
-
-  window.addEventListener(
-    "resize",
-    () => adjustRendererSize(renderer, composer),
-    false,
-  );
-  requestAnimationFrame(animate);
-
-  function animate() {
-    requestAnimationFrame(animate);
-    render();
-  }
-
-  function render() {
-    circularRevealPass.uniforms.u_time.value = u_time.getElapsedTime();
-    composer.render();
-  }
-}
-
-type Node = { type: string };
-type InputNode = Node & (VideoInputNode | ImageInputNode);
+type Node<T extends string = string> = { type: T };
+type InputNode = Node<"input"> & (VideoInputNode | ImageInputNode);
+type BakedShaderType = "grey" | "luminance" | "sobel" | "film" | "xdog" | "circular_reveal" | "dot" | "blur";
+export type ShaderType = BakedShaderType | string & {}
+type ShaderNode = Node<"shader"> & { shaderType: ShaderType, shader: Pass };
 type VideoInputNode = {
   textureType: "video";
   input: HTMLVideoElement;
@@ -235,7 +123,10 @@ type ImageInputNode = {
   textureType: "image";
 };
 
-async function createInputNode(type: InputNode["textureType"], src: string) {
+export async function createInputNode(
+  type: InputNode["textureType"],
+  src: string,
+) {
   if (type === "video") {
     const node: Partial<InputNode> = {
       type: "input",
@@ -274,6 +165,137 @@ async function createInputNode(type: InputNode["textureType"], src: string) {
   }
 }
 
+const DefaultShader = {
+  name: "GreyShader",
+  uniforms: { u_image: { value: null } },
+  vertexShader: await passVertex,
+  fragmentShader: await greyFrag,
+};
+
+export async function createDotPassNode() {
+  const shader = new DotScreenPass(new THREE.Vector2(0, 0), 1, 2);
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "dot",
+    shader
+  };
+  return node;
+}
+
+export async function createCircularRevealPassNode() {
+  const shader = new ShaderPass(
+    {
+      ...DefaultShader,
+      uniforms: {
+        ...DefaultShader.uniforms,
+        u_resolution: { value: resolution },
+        u_time: { value: u_time.getElapsedTime() },
+      },
+      name: "circularRevealPass",
+      fragmentShader: await circularrevealFrag,
+    },
+    "u_image",
+  );
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "circular_reveal",
+    shader
+  };
+  return node;
+}
+
+export async function createSobelPassNode() {
+  const shader = new ShaderPass(
+    {
+      ...DefaultShader,
+      uniforms: {
+        ...DefaultShader.uniforms,
+        u_resolution: { value: resolution },
+      },
+      name: "SobelShader",
+      fragmentShader: await sobelFrag,
+    },
+    "u_image",
+  );
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "sobel",
+    shader
+  };
+
+  return node;
+}
+
+export async function createFilmPassNode() {
+  const shader = new FilmPass(1, false);
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "film",
+    shader
+  };
+
+  return node;
+}
+
+export async function createBlurPassNode() {
+  const shader = new ShaderPass(
+    {
+      ...DefaultShader,
+      uniforms: {
+        ...DefaultShader.uniforms,
+        u_resolution: { value: resolution },
+      },
+      name: "BlurShader",
+      fragmentShader: await blurFrag,
+    },
+    "u_image",
+  );
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "blur",
+    shader
+  };
+  return node;
+}
+
+export async function createLuminancePassNode() {
+  const shader = new ShaderPass(
+    {
+      ...DefaultShader,
+      fragmentShader: await luminanceFrag,
+    },
+    "u_image",
+  );
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "grey",
+    shader
+  };
+  return node;
+}
+
+export async function createGreyPassNode() {
+  const shader = new ShaderPass(
+    {
+      ...DefaultShader,
+    },
+    "u_image",
+  );
+
+  const node: ShaderNode = {
+    type: "shader",
+    shaderType: "grey",
+    shader
+  };
+  return node;
+}
+
 class SignalChain {
   composer: EffectComposer;
   renderer: THREE.WebGLRenderer;
@@ -293,8 +315,9 @@ class SignalChain {
 
   addNode(node: Node) {
     console.assert(!!node, "Node was expected");
+
     const hasInputNode = this.nodes.some((x) => x.type === "input");
-    if (!hasInputNode) {
+    if (!hasInputNode && node.type === "input") {
       this.nodes.splice(0, 0, node);
       return;
     }
